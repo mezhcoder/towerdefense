@@ -1,18 +1,37 @@
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Multiplayer Game</title>
+
     <style>
-        canvas {
-            width: 1000px;
+        body {
+            background: lightgoldenrodyellow;
+            overflow: hidden;
+        }
+        #canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 900px;
             height: 600px;
-            border: 5px solid black;
-            text-align: center;
+            background: white;
+            font-family: 'Orbitron', sans-serif;
         }
     </style>
+
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-<canvas id="canvas"></canvas>
+    <div class="room">
+        <h1>Комната</h1>
+        <p>Игрок 1: <span id="statusPlayer1">не готов</span></p>
+        <p>Игрок 2: <span id="statusPlayer2">не готов</span></p>
+        <input type="text" placeholder="Введи свой ник">
+        <button>Я готов!</button>
+    </div>
 </body>
+<script src="/static/room.js"></script>
 <script src="/static/game.js"></script>
 </html>

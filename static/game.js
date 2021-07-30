@@ -1,110 +1,176 @@
-let socket = io();
+let data;
+let gameGrid = [];
+let canvasPosition;
+socket.on('init', function (dataPlayer) {
+    document.querySelector("body").innerHTML = '<canvas id="canvas"></canvas>';
+    data = new Data(dataPlayer.firstPlayerName.name, dataPlayer.secondPlayerName.name, dataPlayer.team);
+    canvasPosition = data.dataHtml.canvas.getBoundingClientRect();
+    createGrid();
+    loadListeners();
+    loadHandlers(socket);
+});
 
-// let canvas = document.getElementById('canvas');
-// const ctx = canvas.getContext('2d');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+function loadListeners() {
+    data.dataHtml.canvas.addEventListener('mousemove', function(e){
+        mouse.x = e.x - canvasPosition.left;
+        mouse.y = e.y - canvasPosition.top;
+    });
+    data.dataHtml.canvas.addEventListener('mouseleave', function(){
+        mouse.y = undefined;
+        mouse.y = undefined;
+    });
+    data.dataHtml.canvas.addEventListener('click', function() {
+        const gridPositionX = mouse.x  - (mouse.x % data.dataHtml.cellSize) + data.dataHtml.cellGap;
+        const gridPositionY = mouse.y - (mouse.y % data.dataHtml.cellSize) + data.dataHtml.cellGap;
+        if (gridPositionY < data.dataHtml.cellSize) return;
+        // let verticalPosition = Math.floor(Math.random() * 5 + 1) * cellSize + cellGap;
+        let team = data.team;
+        socket.emit('EntitySpawnEvent', {
+            gridPositionX: gridPositionX,
+            gridPositionY: gridPositionY,
+            team: team,
+            health: 100,
+            width: data.dataHtml.cellSize - data.dataHtml.cellGap * 2,
+            height: data.dataHtml.cellSize - data.dataHtml.cellGap * 2
+        });
+    });
+}
+function loadHandlers(socket) {
+    socket.on('AnimateEvent', function (serverData) {
+        animate(serverData);
+    });
 
+    socket.on('GameEndEvent', function (team) {
+        alert("Победила команда: " + team);
+        data = undefined;
+        gameGrid = [];
+        canvasPosition = undefined;
+        window.location.reload();
+    });
+}
 
-let cellSize = 25;
-
-let maxCellInRow = canvas.width / cellSize;
-let maxCellInColumn = canvas.height / cellSize;
-
-//
-// width: 1000px;
-// height: 600px;
-// for (let y = cellSize; y < canvas.height; y += cellSize){
-//     for (let x = 0; x < canvas.width; x += cellSize) {
-//         ctx.beginPath();
-//         ctx.strokeStyle = "black";
-//         ctx.strokeRect(x, y, 100, 100);
-//     }
-// }
-
-// ctx.beginPath();
-// ctx.strokeStyle = "black";
-// ctx.strokeRect(0, 0, 10, 10);
-// ctx.strokeRect(10*1, 0, 10, 10);
-// ctx.strokeRect(10*1, 10, 10, 10);
-
-
-
-// console.log(canvas.clientWidth);
-//
-for (let i = 0; i < maxCellInRow; i++) {
-    for (let j = 0; j < maxCellInColumn; j++) {
-        ctx.beginPath();
-        ctx.strokeStyle = "black";
-        ctx.strokeRect(i*cellSize, j*cellSize, cellSize, cellSize);
+class Data {
+    constructor(firstPlayerName, secondPlayerName, team) {
+        this.firstPlayerName = firstPlayerName;
+        this.secondPlayerName = secondPlayerName;
+        this.team = team;
+        this.dataHtml = new DataHtml();
+    }
+}
+class DataHtml {
+    constructor() {
+        this.canvas = document.getElementById('canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.cellSize = 100;
+        this.canvas.width = 900;
+        this.canvas.height = 600;
+        this.cellGap = 3;
+        this.controlsBar = {
+            width: canvas.width,
+            height: this.cellSize,
+        }
+    }
+}
+class Cell {
+    constructor(x, y){
+        this.x = x;
+        this.y = y;
+        this.width = data.dataHtml.cellSize;
+        this.height =  data.dataHtml.cellSize;
+    }
+    draw(){
+        if (mouse.x && mouse.y && collision(this, mouse)) {
+            data.dataHtml.ctx.strokeStyle = 'black';
+            data.dataHtml.ctx.strokeRect(this.x, this.y, this.width, this.height);
+        }
+    }
+}
+class Entity {
+    constructor(x,y,health,team){
+        this.x = x;
+        this.y = y;
+        this.width = data.dataHtml.cellSize - data.dataHtml.cellGap * 2;
+        this.height = data.dataHtml.cellSize - data.dataHtml.cellGap * 2;
+        this.health = health;
+        this.team = team;
+    }
+    draw() {
+        data.dataHtml.ctx.fillStyle = this.team;
+        data.dataHtml.ctx.fillRect(this.x, this.y, this.width, this.height);
+        data.dataHtml.ctx.fillStyle = 'black';
+        data.dataHtml.ctx.font = '30px Orbitron';
+        data.dataHtml.ctx.fillText(Math.floor(this.health), this.x + 15, this.y + 30);
     }
 }
 
+let mouse = {
+    x: 10,
+    y: 10,
+    width: 0.1,
+    height: 0.1,
+}
+function handleGameStatus(data, serverData) {
+    let statusFirstPlayer = (serverData.setStatus.firstPlayer) ? "yes" : "reloading";
+    let statusSecondPlayer = (serverData.setStatus.secondPlayer) ? "yes" : "reloading";
 
 
-console.log(maxCellInRow);
-console.log(maxCellInColumn);
+    let ctx = data.dataHtml.ctx;
+    ctx.beginPath();
+    ctx.fillStyle = 'lightblue';
+    ctx.font = '22.5px Orbitron';
+    ctx.fillText(data.firstPlayerName, 20, 30);
+    ctx.fillText('Set: ' + statusFirstPlayer, 20, 85);
+    ctx.closePath();
 
+    ctx.beginPath();
+    ctx.fillStyle = 'orange';
+    ctx.font = '22.5px Orbitron';
+    ctx.fillText(data.secondPlayerName, 20*40, 30);
+    ctx.fillText('Set: ' + statusSecondPlayer, 20*37.4, 85);
+    ctx.closePath();
+}
+function handleGameGrid() {
+    for (let i = 0; i < gameGrid.length; i++) {
+        gameGrid[i].draw();
+    }
+}
+function createGrid() {
+    for (let y = data.dataHtml.cellSize; y < canvas.height; y += data.dataHtml.cellSize){
+        for (let x = 0; x < canvas.width; x += data.dataHtml.cellSize){
+            gameGrid.push(new Cell(x, y));
+        }
+    }
+}
 
+function handleEnemies(serverData) {
+    for (const dataEntities of serverData.entities) {
+        let entity = new Entity(dataEntities.gridPositionX, dataEntities.gridPositionY, dataEntities.health, dataEntities.team )
+        entity.draw();
+    }
+}
 
-// var movement = {
-//     up: false,
-//     down: false,
-//     left: false,
-//     right: false
-// }
-//
-// document.addEventListener('keydown', function(event) {
-//     switch (event.keyCode) {
-//         case 65: // A
-//             movement.left = true;
-//             break;
-//         case 87: // W
-//             movement.up = true;
-//             break;
-//         case 68: // D
-//             movement.right = true;
-//             break;
-//         case 83: // S
-//             movement.down = true;
-//             break;
-//     }
-// });
-// document.addEventListener('keyup', function(event) {
-//     switch (event.keyCode) {
-//         case 65: // A
-//             movement.left = false;
-//             break;
-//         case 87: // W
-//             movement.up = false;
-//             break;
-//         case 68: // D
-//             movement.right = false;
-//             break;
-//         case 83: // S
-//             movement.down = false;
-//             break;
-//     }
-// });
-//
-// socket.emit('new player');
-// setInterval(function() {
-//     socket.emit('movement', movement);
-// }, 1000 / 60);
-//
-// var canvas = document.getElementById('canvas');
-// canvas.width = 800;
-// canvas.height = 600;
-// var context = canvas.getContext('2d');
-//
-// socket.on('state', function(players) {
-//     console.log(players);
-//     context.clearRect(0, 0, 800, 600);
-//     context.fillStyle = 'green';
-//     for (var id in players) {
-//         var player = players[id];
-//         context.beginPath();
-//         context.arc(player.x, player.y, 10, 0, 2 * Math.PI);
-//         context.fill();
-//     }
-// });
+function animate(serverData) {
+    const dataHtml = data.dataHtml;
+    let ctx = dataHtml.ctx;
+    let controlsBar = dataHtml.controlsBar;
+
+    ctx.clearRect(0, 0, dataHtml.canvas.width, dataHtml.canvas.height);
+    ctx.fillStyle = 'gray';
+    ctx.fillRect(0,0, controlsBar.width, controlsBar.height);
+
+    handleGameStatus(data, serverData);
+    handleGameGrid();
+    handleEnemies(serverData);
+}
+
+function collision(first, second){
+    if (!(first.x > second.x + second.width ||
+        first.x + first.width < second.x ||
+        first.y > second.y + second.height ||
+        first.y + first.height < second.y)) {
+        return true;
+    }
+}
+window.addEventListener('resize', function(){
+    canvasPosition = data.dataHtml.canvas.getBoundingClientRect();
+})
