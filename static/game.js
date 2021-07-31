@@ -86,7 +86,7 @@ class Cell {
     }
 }
 class Entity {
-    constructor(x,y,health,team){
+    constructor(x,y,health,team) {
         this.x = x;
         this.y = y;
         this.width = data.dataHtml.cellSize - data.dataHtml.cellGap * 2;
